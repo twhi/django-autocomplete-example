@@ -16,10 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.conf.urls import url
-from main.views import index, get_places
+from main.views import index, get_places, receive_form
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', index),
     path('api/get_places/', get_places, name='get_places'),
+    path('api/receive_form/', receive_form, name='receive_form')
 ]

@@ -1,41 +1,49 @@
 <!doctype html>
 
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <title>Titel</title>
 
     <link href="https://fonts.googleapis.com/css?family=Lato&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="http://code.jquery.com/ui/1.8.18/themes/base/jquery-ui.css" type="text/css"
-          media="all"/>
+        media="all" />
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js"
-            type="text/javascript"></script>
+        type="text/javascript"></script>
 
 
     <style>
-
         .player-box {
-            background-color: #c3ffe1;
             color: black;
             border-radius: 100px;
             border-bottom-style: solid;
-            border-color: #006633;
             margin: 10px;
             padding-right: 5px;
             padding-left: 5px;
-            display:inline-block;
+            display: inline-block;
+        }
+
+        #results-include>.player-box {
+            border-color: #006633;
+            background-color: #c3ffe1;
+        }
+
+        #results-exclude>.player-box {
+            border-color: #660000;
+            background-color: #ffc3c3;
         }
 
         .player-name {
-            display:inline-block;
+            display: inline-block;
         }
 
         .close-button {
             font-weight: bold;
             padding-left: 10px;
             padding-right: 5px;
-            display:inline-block;
+            display: inline-block;
         }
 
         .close-button:hover {
@@ -50,62 +58,120 @@
         body {
             font-family: 'Lato', sans-serif;
         }
-
     </style>
 </head>
 
 <body>
-<div class="ui-widget">
-    <label for="places">Places: </label>
-    <input id="places">
-</div>
 
-<div id="results">
 
-</div>
+    <form method="POST" id="post-form">
+        {% csrf_token %}
+        <div class="ui-widget">
+            <label for="include">Select places to include: </label>
+            {{ main_form.include }}
+        </div>
+        <br>
+        <div class="ui-widget">
+            <label for="include">Select places to exclude: </label>
+            {{ main_form.exclude }}
+        </div>
+        <br>
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+
+    <div id="results">
+        <div id="results-include"></div>
+        <div id="results-exclude"></div>
+    </div>
 
 </body>
 
 
 <script>
+
+    function getInfoFromPage() {
+        var i = $("#results-include .player-box").map(function () { return $(this).attr("data-id"); }).get();
+        i.length == 0 ? null : i;
+
+        var e = $("#results-exclude .player-box").map(function () { return $(this).attr("data-id"); }).get();
+        e.length == 0 ? null : e;
+
+        playerElements = {
+            'include': i.length == 0 ? null : i,
+            'exclude': e.length == 0 ? null : e,
+        }
+        return playerElements
+    }
+
+    $(document).on('submit', '#post-form', function (e) {
+        $.ajax({
+            type: 'POST',
+            url: 'api/receive_form/',
+            data: {
+                selected: JSON.stringify(getInfoFromPage()),
+                csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                action: 'post'
+            },
+            success: function (json) {
+                document.getElementById("post-form").reset();
+            },
+            error: function (xhr, errmsg, err) {
+                alert(err);
+            }
+        });
+    });
+
+
     // remove list-item elements if clicked
-    $('body').on('click', '.close-button', function() {
+    $('body').on('click', '.close-button', function () {
         $(this).parent('div').remove();
     });
 
     // powers the autocomplete ajax calls
-    $(function() {
-        $("#places").autocomplete({
-          source: "/api/get_places/",
-          select: function (event, ui) { //item selected
-            appendResult(event, ui);
-            $(this).val("");
-            return false;
-          },
-          minLength: 2,
+    $(function () {
+        $("#include").autocomplete({
+            source: "/api/get_places/",
+            minLength: 2,
+            select: function (event, ui) { //item selected
+                appendResult(event, ui, "include");
+                $(this).val("");
+                return false;
+            },
+        });
+        $("#exclude").autocomplete({
+            source: "/api/get_places/",
+            minLength: 2,
+            select: function (event, ui) { //item selected
+                appendResult(event, ui, "exclude");
+                $(this).val("");
+                return false;
+            },
         });
     });
 
     // appends selected result to the results section
-    function appendResult(event, ui) {
+    function appendResult(event, ui, player_type) {
+
         var selectedObj = ui.item; // get selection from dropdown
 
         // get items already selected by user, if the user tries to select one of these then display an alert
         var alreadySelected = document.getElementById("results").innerText;
         if (alreadySelected) {
             if (alreadySelected.includes(selectedObj.value)) {
-            alert("Player has already been selected!");
-            return false;
+                alert("Player has already been selected!");
+                return false;
             }
         }
 
         // create a box for the player info to sit in
         var player_div = document.createElement('div');
         player_div.setAttribute('class', 'player-box');
+        player_div.setAttribute('data-id', ui.item.name)
 
         // create player text element and append to box
         var player = document.createElement('p');
         player.textContent = selectedObj.value;
+        player.setAttribute('class', 'player-name-' + player_type);
         player.setAttribute('class', 'player-name');
         player_div.append(player)
 
@@ -116,8 +182,9 @@
         player_div.appendChild(closeButton);
 
         // append constructed box to results section in DOM
-        var target = document.getElementById("results");
+        var target = document.getElementById("results-" + player_type);
         target.appendChild(player_div)
     }
 </script>
+
 </html>
